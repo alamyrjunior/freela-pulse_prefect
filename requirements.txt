@@ -1,0 +1,4 @@
+prefect --pre
+supabase
+load_dotenv
+requests
