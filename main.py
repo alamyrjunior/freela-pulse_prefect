@@ -141,6 +141,3 @@ def freela_pulse():
         query_data = get_query_data(query)
         projects = get_projects(query_data)
         send_pulse_workana(projects, query_data)
-
-if __name__ == "__main__":
-    freela_pulse()
