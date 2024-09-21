@@ -4,7 +4,6 @@ FROM python:3.9-slim
 WORKDIR /app
 
 # Instale o Prefect e dependências
-RUN pip install prefect
-
+RUN pip install -r requirements.txt
 # Copie seus scripts de flow para o container
 COPY . /app
