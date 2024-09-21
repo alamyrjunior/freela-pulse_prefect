@@ -142,6 +142,13 @@ def freela_pulse():
         projects = get_projects(query_data)
         send_pulse_workana(projects, query_data)
 
-
 if __name__ == "__main__":
-    freela_pulse()
+       freela_pulse.from_source(
+        "https://github.com/alamyrjunior/freela-pulse_prefect.git",
+        entrypoint="main.py:freela_pulse",
+        
+    ).deploy(
+        name="freela-pulse",
+        work_pool_name="freela-pulse",
+        build=False
+    )

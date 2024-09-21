@@ -7,6 +7,6 @@ if __name__ == "__main__":
         
     ).deploy(
         name="freela-pulse",
-        work_pool_name="docker-pool",
+        work_pool_name="freela-pulse",
         build=False
     )
