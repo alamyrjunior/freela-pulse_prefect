@@ -9,5 +9,6 @@ COPY requirements.txt /app/
 # Instale o Prefect e dependências
 RUN pip install -r requirements.txt
 
+EXPOSE 4200
 # Copie seus scripts de flow para o container
 COPY . /app
