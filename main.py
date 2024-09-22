@@ -134,13 +134,14 @@ def send_pulse_workana(projects, payload):
             raise Exception(f"Key Error sending whatsapp message: {err}")
 
 
-@flow
+@flow(log_prints=True)
 def freela_pulse():
     queries = get_queries()
     for query in queries:
         query_data = get_query_data(query)
         projects = get_projects(query_data)
         send_pulse_workana(projects, query_data)
+
 
 if __name__ == "__main__":
     freela_pulse()
