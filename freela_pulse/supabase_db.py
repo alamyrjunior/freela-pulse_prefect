@@ -2,12 +2,14 @@ import os
 from supabase import create_client
 from dotenv import load_dotenv
 from supabase import PostgrestAPIError
-
-# supabase_credentials = Vault().get_secret("supabasekey_freelapulse")
+from prefect.variables import Variable
+from prefect.blocks.system import Secret
 
 load_dotenv()
-url = os.getenv("SUPABASE_URL")
-key = os.getenv("SUPABASE_KEY")
+secrets = Secret.load("freela-pulse-secrets")
+config = Variable.get("freela_pulse_config")
+url = config.get("supabase_url")
+key = secrets.get("supabase_key")
 credentials = {"url": url, "key": key}
 
 
@@ -135,13 +137,16 @@ def get_users_from_query(supabase, query_id):
     response = (
         supabase.table("user_queries")
         .select("user_id, users(name, number, active, expires_at)")
-        .eq("query_id", query_id).execute()
+        .eq("query_id", query_id)
+        .execute()
     )
     return response.data
+
 
 def delete_project_from_user(supabase: create_client, project_id: int):
     supabase.table("projects_users").delete().eq("project_id", project_id).execute()
     print("Projeto excluído com sucesso!")
+
 
 supabase = create_supabase_client(credentials)
 # response = create_user(supabase, 'billl', 'bill2@example.com', 6666666666, True, '2024-12-12')
@@ -152,6 +157,6 @@ supabase = create_supabase_client(credentials)
 response = get_users_from_query(supabase, 21)
 
 for user in response:
-    userdata = user.get('users')
-    name = userdata.get('name')
+    userdata = user.get("users")
+    name = userdata.get("name")
     print(name)

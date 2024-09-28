@@ -1,6 +1,6 @@
 from dotenv import load_dotenv
 import os
-from prefect import task, flow
+from prefect import task, flow, variables
 from freela_pulse.supabase_db import (
     create_supabase_client,
     insert_project,
@@ -20,7 +20,7 @@ load_dotenv()
 
 @task
 def get_queries():
-    supabase_credentials = os.getenv("SUPABASE_KEY")
+    supabase_credentials = variables.get("SUPABASE_KEY")
     supabase = create_supabase_client(supabase_credentials)
     queries = get_all_queries(supabase)
     return queries
