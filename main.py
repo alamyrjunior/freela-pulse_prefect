@@ -1,6 +1,7 @@
 from dotenv import load_dotenv
-import os
-from prefect import task, flow, variables
+from prefect.variables import Variable
+from prefect import task, flow
+from prefect.blocks.system import Secret
 from freela_pulse.supabase_db import (
     create_supabase_client,
     insert_project,
@@ -15,13 +16,16 @@ from freela_pulse.workana import (
     send_whats_app_message,
 )
 
-load_dotenv()
+
+secrets = Secret.load("freela-pulse-secrets").get()
+config = Variable.get("freela_pulse_config")
 
 
 @task
 def get_queries():
-    supabase_credentials = variables.get("SUPABASE_KEY")
-    supabase = create_supabase_client(supabase_credentials)
+    url = config.get("supabase_url")
+    key = secrets.get("supabase_key")
+    supabase = create_supabase_client(url, key)
     queries = get_all_queries(supabase)
     return queries
 
@@ -50,8 +54,8 @@ def get_query_data(query: dict):
 def get_projects(payload):
 
     # Get environment variables
-    url = os.getenv("WORKANA_URL")
-    publication = os.getenv("PUBLICATION")
+    url = config.get("workana_url")
+    publication = config.get("publication")
 
     try:
         query = payload.get("query")
@@ -76,16 +80,17 @@ def get_projects(payload):
 
 @task
 def send_pulse_workana(projects, payload):
-    token = os.getenv("WHATSAPP_TOKEN")
-    id_sender = os.getenv("ID_SENDER")
+    token = config.get("whatsapp_token")
+    id_sender = config.get("whatsapp_id_sender")
     query_id = payload.get("query_id")
     query = payload.get("query")
 
     # TODO: Criar uma view para mesclar o user_id com a tabela users
     # Get user ids of users who are interested in the current query
     # Connect to the database
-    supabase_credentials = os.getenv("SUPABASE_KEY")
-    supabase = create_supabase_client(supabase_credentials)
+    url = config.get("supabase_url")
+    key = secrets.get("supabase_key")
+    supabase = create_supabase_client(url, key)
     users = get_users_from_query(supabase, query_id)
     print(f"Found {len(users)} users interested in query: {query}. {users}")
 

@@ -4,7 +4,6 @@ from dotenv import load_dotenv
 from supabase import PostgrestAPIError
 from prefect.variables import Variable
 from prefect.blocks.system import Secret
-import json 
 
 
 secrets = Secret.load("freela-pulse-secrets").get()
@@ -16,16 +15,9 @@ if not isinstance(prefect_config, dict):
     raise ValueError(
         f"A variável 'freela_pulse_config' não é um dicionário. Ela é {type(prefect_config)}"
     )
-print(prefect_config)
-url = prefect_config.get("supabase_url")
-key = secrets.get("supabase_key")   
-credentials = {"url": url, "key": key}
 
 
-def create_supabase_client(credentials):
-    # url = credentials["url"]
-    # key = credentials["key"]
-
+def create_supabase_client(url, key):
     supabase = create_client(url, key)
 
     return supabase
@@ -75,22 +67,6 @@ def create_query(supabase, query, category, language, skills):
         # Captura erro de chave duplicada devido à restrição UNIQUE
         if "duplicate key value" in str(e):
             return "Essa query já existe."
-        else:
-            return f"Erro ao criar query: {e}"
-
-
-def insert_query_to_user(supabase, user_id, query_id):
-
-    query = {"user_id": user_id, "query_id": query_id}
-    try:
-        response = supabase.table("user_queries").insert(query).execute()
-        print(response)
-        return "Query adicionada com sucesso!"
-
-    except PostgrestAPIError as e:
-        # Captura erro de chave duplicada devido à restrição UNIQUE
-        if "duplicate key value" in str(e):
-            return "Essa query já existe para esse user."
         else:
             return f"Erro ao criar query: {e}"
 
@@ -157,15 +133,16 @@ def delete_project_from_user(supabase: create_client, project_id: int):
     print("Projeto excluído com sucesso!")
 
 
-supabase = create_supabase_client(credentials)
+# supabase = create_supabase_client(url, key)
 # response = create_user(supabase, 'billl', 'bill2@example.com', 6666666666, True, '2024-12-12')
 # response = create_query(supabase, "bott", "it-programming", "xx", "aa")
 # response = add_query_to_user(supabase, 1, 21)
 # response = insert_project(supabase, "billll", 21)
 # response = insert_project_to_user(supabase, 2, 1)
-response = get_users_from_query(supabase, 21)
-
+# response = get_users_from_query(supabase, 21)
+"""
 for user in response:
     userdata = user.get("users")
     name = userdata.get("name")
     print(name)
+"""
