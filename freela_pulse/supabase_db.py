@@ -4,12 +4,21 @@ from dotenv import load_dotenv
 from supabase import PostgrestAPIError
 from prefect.variables import Variable
 from prefect.blocks.system import Secret
+import json 
 
-load_dotenv()
-secrets = Secret.load("freela-pulse-secrets")
-config = Variable.get("freela_pulse_config")
-url = config.get("supabase_url")
-key = secrets.get("supabase_key")
+
+secrets = Secret.load("freela-pulse-secrets").get()
+prefect_config = Variable.get("freela_pulse_config")
+
+
+# Verificar se a variável foi carregada corretamente
+if not isinstance(prefect_config, dict):
+    raise ValueError(
+        f"A variável 'freela_pulse_config' não é um dicionário. Ela é {type(prefect_config)}"
+    )
+print(prefect_config)
+url = prefect_config.get("supabase_url")
+key = secrets.get("supabase_key")   
 credentials = {"url": url, "key": key}
 
 
