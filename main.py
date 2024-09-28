@@ -55,6 +55,8 @@ def get_projects(payload):
 
     # Get environment variables
     url = config.get("workana_url")
+    if not url:
+        raise ValueError("A url não existe")
     publication = config.get("publication")
 
     try:
@@ -80,8 +82,8 @@ def get_projects(payload):
 
 @task
 def send_pulse_workana(projects, payload):
-    token = config.get("whatsapp_token")
-    id_sender = config.get("whatsapp_id_sender")
+    token = secrets.get("whatsapp_token")
+    id_sender = secrets.get("whatsapp_id_sender")
     query_id = payload.get("query_id")
     query = payload.get("query")
 
