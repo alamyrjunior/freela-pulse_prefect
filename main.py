@@ -105,7 +105,7 @@ def send_pulse_workana(projects, payload):
     for project in projects:
         try:
             slug = project.get("slug")
-       
+
             # If project does not exist, add it to the database and send whatsapp messages to interested users
             project_exists, project_id = insert_project(supabase, slug, query_id)
             if project_exists:
