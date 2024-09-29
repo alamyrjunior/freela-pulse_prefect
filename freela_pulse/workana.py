@@ -52,6 +52,11 @@ def converter_dolares_para_reais(budget):
 
 
 def format_description(html_message):
+    regex_categoria = re.search(r".*(?=Categoria)", html_message)
+    if regex_categoria:
+        html_message = regex_categoria.group(0)
+    else:
+        raise Exception("Não foi possivel filtrar o texto da descricao")
 
     html_message = re.sub(r'\s*(target|class|rel)="[^"]*"', "", html_message)
 
@@ -61,12 +66,17 @@ def format_description(html_message):
     formatted_message = re.sub(r"\s*<br\s*/?>\s*", "\n", html_message)
 
     # Substitui as tags <strong> pelo asterisco
-    formatted_message = re.sub(r"</?strong>", "*", formatted_message)
+    formatted_message = re.sub(r"</?strong>", "", formatted_message)
 
     formatted_message = formatted_message.replace("&nbsp", " ")
 
     # Remove qualquer espaço em branco extra que possa ter ficado
-    formatted_message = formatted_message.strip()
+    formatted_message = formatted_message.strip().replace("\n", "")
+
+    if len(formatted_message) > 900:
+        formatted_message = (
+            formatted_message[:900] + "... (continua)"
+        )  # Limita a descrição à 900 caracteres e adiciona "..." no final caso seja maior
 
     return formatted_message
 
@@ -82,11 +92,13 @@ def format_projects(response):
     for job in results:
         slug = job.get("slug")
         title = job.get("title")
+        """
         href_match = re.search(href_regex, title)
 
         if href_match:
             href_value = href_match.group(1)
             url = href_value
+        """
         title_match = re.search(title_regex, title)
 
         if title_match:
@@ -94,29 +106,43 @@ def format_projects(response):
             title = title_value
         # author = job["authorName"]
         description = job.get("description")
+        description = format_description(description)
         posted_date = job.get("postedDate")
         budget = job.get("budget")
-
-        # Format the results
-        url = base_url + href_value
-        description = format_description(description)
         budget = converter_dolares_para_reais(budget)
         budget = budget.replace("USD", "R$")
-        message = (
+        """  message = (
             f"*Informações do projeto:*\n\n"
-            f"*Título:* {title_value}\n\n"
             f"*Link do projeto:* {url}\n\n"
+            f"*Título:* {title_value}\n\n"
             f"*Descrição:* {description}\n"
             f"*Foi postado:* {posted_date}\n"
             f"*Orçamento:* {budget}"
-        )
 
-        projects.append({"message": message, "slug": slug})
+        )
+        message = message.replace("\n", "")"""
+
+        projects.append(
+            {
+                "title": title,
+                "description": description,
+                "posted": posted_date,
+                "budget": budget,
+                "slug": slug,
+            }
+        )
     return projects
 
 
-def send_whats_app_message(id_number, username, to_number, token, message):
+def send_whats_app_message(id_number, username, to_number, token, project):
+
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+    }
     url = f"https://graph.facebook.com/v20.0/{id_number}/messages"
+    # url = f"https://graph.facebook.com/v20.0/{id_number}/message_templates"
+    """
     greetings = f"*Olá! {username} encontramos um novo projeto para você!*\n\n"
     payload = json.dumps(
         {
@@ -128,6 +154,55 @@ def send_whats_app_message(id_number, username, to_number, token, message):
             "text": {"body": greetings + message},
         }
     )
+    """
+    title = project.get("title")
+    description = project.get("description")
+    posted = project.get("posted")
+    budget = project.get("budget")
+    slug = project.get("slug")
+
+    payload = json.dumps(
+        {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": to_number,
+            "type": "template",
+            "template": {
+                "name": "workana_projects",
+                "language": {"code": "pt_BR"},
+                "components": [
+                    {
+                        "type": "header",
+                        "parameters": [{"type": "text", "text": username}],
+                    },
+                    {
+                        "type": "body",
+                        "parameters": [
+                            {"type": "text", "text": title},
+                            {
+                                "type": "text",
+                                "text": description,
+                            },
+                            {"type": "text", "text": posted},
+                            {"type": "text", "text": budget},
+                        ],
+                    },
+                    {
+                        "type": "button",
+                        "sub_type": "url",
+                        "index": 0,
+                        "parameters": [
+                            {
+                                "type": "text",
+                                "text": slug,
+                            }
+                        ],
+                    },
+                ],
+            },
+        }
+    )
+    print(f"Payload: \n{payload}")
     headers = {"Content-Type": "application/json", "Authorization": "Bearer " + token}
     try:
         # Envio da requisição
@@ -154,3 +229,11 @@ def freela_pulse(url, query, publication, language, category, skills):
     for message in messages:
         response = send_whats_app_message(id, to_number, token, message)
         print("response whatsapp:", response)
+
+
+token = "EAAO52Q8n6KwBOZCOeOQ7AX161w6tZCFwvommLWbVsZCIoeSl0MUV6RKPbgXGxnMzILZAS8EYtHzSdUOSKXOAmtd8iL11SK5VpL6bvaJp9i72ISbpZC0hDT5xYQHAQzXaCZBYHGaiLbXu5hMOBtlq4sw3k9hnpjm45mCSbLSjXWujeHdyRWmJY4RRdZBXp287UX5vr9nAgY2ety9vOQO"
+id = 365993156607854
+message = "teste testando teste"
+to_number = 5521976085063
+# response = send_whats_app_message(id, "Alamyr", to_number, token, message, "bot-para-runescape-3")
+# print(response)

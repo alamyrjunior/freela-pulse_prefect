@@ -1,4 +1,3 @@
-from dotenv import load_dotenv
 from prefect.variables import Variable
 from prefect import task, flow
 from prefect.blocks.system import Secret
@@ -17,12 +16,17 @@ from freela_pulse.workana import (
 )
 
 
-secrets = Secret.load("freela-pulse-secrets").get()
-config = Variable.get("freela_pulse_config")
+@task
+def get_variables():
+    secrets = Secret.load("freela-pulse-secrets").get()
+    config = Variable.get("freela_pulse_config")
+
+    return config, secrets
 
 
 @task
 def get_queries():
+    config, secrets = get_variables()
     url = config.get("supabase_url")
     key = secrets.get("supabase_key")
     supabase = create_supabase_client(url, key)
@@ -52,7 +56,7 @@ def get_query_data(query: dict):
 
 @task
 def get_projects(payload):
-
+    config, secrets = get_variables()
     # Get environment variables
     url = config.get("workana_url")
     if not url:
@@ -82,6 +86,7 @@ def get_projects(payload):
 
 @task
 def send_pulse_workana(projects, payload):
+    config, secrets = get_variables()
     token = secrets.get("whatsapp_token")
     id_sender = secrets.get("whatsapp_id_sender")
     query_id = payload.get("query_id")
@@ -100,8 +105,7 @@ def send_pulse_workana(projects, payload):
     for project in projects:
         try:
             slug = project.get("slug")
-            message = project.get("message")
-
+       
             # If project does not exist, add it to the database and send whatsapp messages to interested users
             project_exists, project_id = insert_project(supabase, slug, query_id)
             if project_exists:
@@ -129,7 +133,7 @@ def send_pulse_workana(projects, payload):
                     try:
                         print(f"Enviando projeto para {username}")
                         send_whats_app_message(
-                            id_sender, username, user_number, token, message
+                            id_sender, username, user_number, token, project
                         )
                     except Exception as e:
                         delete_project_from_user(supabase, project_id)
@@ -143,6 +147,7 @@ def send_pulse_workana(projects, payload):
 
 @flow(log_prints=True)
 def freela_pulse():
+
     queries = get_queries()
     for query in queries:
         query_data = get_query_data(query)

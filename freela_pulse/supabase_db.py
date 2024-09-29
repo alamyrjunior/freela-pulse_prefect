@@ -6,17 +6,6 @@ from prefect.variables import Variable
 from prefect.blocks.system import Secret
 
 
-secrets = Secret.load("freela-pulse-secrets").get()
-prefect_config = Variable.get("freela_pulse_config")
-
-
-# Verificar se a variável foi carregada corretamente
-if not isinstance(prefect_config, dict):
-    raise ValueError(
-        f"A variável 'freela_pulse_config' não é um dicionário. Ela é {type(prefect_config)}"
-    )
-
-
 def create_supabase_client(url, key):
     supabase = create_client(url, key)
 
