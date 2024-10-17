@@ -102,6 +102,7 @@ def insert_project(supabase, slug, query_id):
 
 
 ### SELECTS ####
+
 def get_all_queries(supabase):
     response = supabase.table("queries").select("*").execute()
     return response.data

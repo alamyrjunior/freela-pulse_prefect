@@ -1,5 +1,5 @@
 from prefect.variables import Variable
-from prefect import task, flow
+from prefect import task, flow, unmapped
 from prefect.blocks.system import Secret
 from freela_pulse.supabase_db import (
     create_supabase_client,
@@ -10,11 +10,11 @@ from freela_pulse.supabase_db import (
     delete_project_from_user,
 )
 from freela_pulse.workana import (
-    search_projects,
-    format_projects,
+    request_get_workana_projects,
+    format_project,
     send_whats_app_message,
 )
-
+import json
 
 @task
 def get_variables():
@@ -24,18 +24,9 @@ def get_variables():
     return config, secrets
 
 
-@task
-def get_queries():
-    config, secrets = get_variables()
-    url = config.get("supabase_url")
-    key = secrets.get("supabase_key")
-    supabase = create_supabase_client(url, key)
-    queries = get_all_queries(supabase)
-    return queries
-
-
-@task
+@task(name="query-data", task_run_name="a")
 def get_query_data(query: dict):
+    print(query)
     print(f"Adding query to workitems: {query}")
     query_id = query.get("id")
     query_name = query.get("query")
@@ -54,106 +45,121 @@ def get_query_data(query: dict):
     return payload
 
 
-@task
-def get_projects(payload):
-    config, secrets = get_variables()
-    # Get environment variables
-    url = config.get("workana_url")
-    if not url:
-        raise ValueError("A url não existe")
+def get_projects(query, config):
+    workana_url = config.get("workana_url")
     publication = config.get("publication")
 
-    try:
-        query = payload.get("query")
-        category = payload.get("category")
-        language = payload.get("language")
-        skills = payload.get("skills")
-        query_id = payload.get("query_id")
+    # Get environment variables
 
-        print(f"Processing query: {query} - {query_id}")
+    if not workana_url:
+        raise ValueError("A url não existe")
+
+    try:
+        query_name = query.get("query")
+        category = query.get("category")
+        language = query.get("language")
+        skills = query.get("skills")
+        query_id = query.get("id")
 
         # Search project for query, category, language, skills on workana website
-        projects = search_projects(url, query, publication, language, category, skills)
-        # Format project results into whatsapp format
-        projects = format_projects(projects)
-
+        projects = request_get_workana_projects(
+            workana_url, query_name, publication, language, category, skills
+        )
         return projects
+
     except Exception as e:
-        print(f"Error processing query: {query} - {query_id}")
-        print(f"Error: {e}")
-        return []
+        print(f"Error getting projects of query: {query} - {query_id}")
+        raise Exception(f"Error: {e}")
 
 
 @task
-def send_pulse_workana(projects, payload):
-    config, secrets = get_variables()
-    token = secrets.get("whatsapp_token")
-    id_sender = secrets.get("whatsapp_id_sender")
-    query_id = payload.get("query_id")
-    query = payload.get("query")
+def send_project_to_user(user, project, supabase, query_id, secrets):
+    try:
+        slug = project.get("slug")
+        if not slug:
+            raise AssertionError("Project slug is not provided")
+        project_exists, project_id = insert_project(supabase, slug, query_id)
+        if project_exists:
+            print("Project was already sent!")
+            return
+        
+        print(user)
+        user_id = user.get("user_id")
+        users = user.get("users")
+        username = users.get("name")
+        usernumber = users.get("number")
+        is_active = users.get("active")
+        print("Checking if user is active:", is_active)
 
-    # TODO: Criar uma view para mesclar o user_id com a tabela users
-    # Get user ids of users who are interested in the current query
-    # Connect to the database
+        if is_active:
+            # TODO Check if current date is greater than active date
+            # TODO Warn user about his being inactive
+            project_exists = insert_project_to_user(supabase, project_id, user_id)
+            if project_exists:
+                return
+          
+            try:
+                send_whats_app_message(username, usernumber, project, secrets)
+            except Exception as e:
+                delete_project_from_user(supabase, project_id)
+                raise Exception(f"Error sending whatsapp message: {e}")
+    except AssertionError as err:
+        raise Exception(f"Assertion Error sending project to user: {err}")
+
+
+@task(log_prints=True)
+def process_query(query, supabase, config, secrets):
+    print(f"Processing query: {query['query']}")
+    query_id = query["id"]
+
+    # Obtenha os projetos e formate-os
+    projects = get_projects(query, config)
+    formatted_projects = format_project.map(projects)
+
+    # Obtenha os usuários
+    users = get_users_from_query(supabase, query["id"])
+
+    # Gera os pares de usuários e projetos
+    pairs = [(user, project) for user in users for project in formatted_projects]
+
+    # Lista para armazenar os futuros
+    futures = []
+
+    # Enviar os projetos para os usuários
+    for user, project in pairs:
+        future = send_project_to_user.submit(
+            user,
+            project,
+            supabase,
+            query_id,
+            secrets,
+            wait_for=[formatted_projects, projects],
+        )
+        futures.append(future)
+
+    # Aguarda todos os futuros serem resolvidos
+    for future in futures:
+        future.result()
+
+    """
+    for user, project in pairs:
+        sent_project = send_project_to_user.submit(user, project, supabase, query_id, secrets, wait_for=[format_project, get_projects])
+        sent_project.result()
+    """
+
+
+@flow(name="freela-pulse")
+def main():
+    config, secrets = get_variables()
     url = config.get("supabase_url")
     key = secrets.get("supabase_key")
+
     supabase = create_supabase_client(url, key)
-    users = get_users_from_query(supabase, query_id)
-    print(f"Found {len(users)} users interested in query: {query}. {users}")
-
-    # Send whatsapp messages to interested users with the project details
-    for project in projects:
-        try:
-            slug = project.get("slug")
-
-            # If project does not exist, add it to the database and send whatsapp messages to interested users
-            project_exists, project_id = insert_project(supabase, slug, query_id)
-            if project_exists:
-                continue
-
-            print(f"Sending project {slug} to users")
-
-            for user in users:
-                user_id = user.get("user_id")
-                # Get user data
-                user_data = user.get("users")
-                username = user_data.get("name")
-                user_number = user_data.get("number")
-                is_active = user_data.get("active")
-
-                if is_active:
-                    # TODO Check if current date is greater than active date
-                    # TODO Warn user about his being inactive
-                    project_exists = insert_project_to_user(
-                        supabase, project_id, user_id
-                    )
-                    # check if user already have the project
-                    if project_exists:
-                        continue
-                    try:
-                        print(f"Enviando projeto para {username}")
-                        send_whats_app_message(
-                            id_sender, username, user_number, token, project
-                        )
-                    except Exception as e:
-                        delete_project_from_user(supabase, project_id)
-                        raise Exception(f"Error sending whatsapp message: {e}")
-
-        except AssertionError as err:
-            raise Exception(f"Assertion Error sending whatsapp message: {err}")
-        except KeyError as err:
-            raise Exception(f"Key Error sending whatsapp message: {err}")
+    queries = get_all_queries(supabase)
+    queries_results = process_query.map(
+        queries, unmapped(supabase), unmapped(config), unmapped(secrets)
+    )
+    queries_results.result()
 
 
-@flow(log_prints=True)
-def freela_pulse():
-
-    queries = get_queries()
-    for query in queries:
-        query_data = get_query_data(query)
-        projects = get_projects(query_data)
-        send_pulse_workana(projects, query_data)
-
-
-if __name__ == "__main__":
-    freela_pulse()
+main()

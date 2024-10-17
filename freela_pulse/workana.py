@@ -1,10 +1,13 @@
 ﻿import requests
 import re
 import json
+from prefect import task
 
-
-def search_projects(url, query, publication, language=None, category=None, skills=None):
-
+@task
+def request_get_workana_projects(
+    url, query, publication, language=None, category=None, skills=None
+):
+    print("Requesting workana projects")
     params = {
         "query": query,
         "publication": publication,
@@ -26,9 +29,9 @@ def search_projects(url, query, publication, language=None, category=None, skill
         # Envio da requisição
         response = requests.get(url, headers=headers, params=params)
         response.raise_for_status()  # Levanta uma exceção para erros HTTP
-
+        projects = response.json()["results"]["results"]
         # Processa e retorna a resposta JSON
-        return response.json()
+        return projects
 
     except requests.exceptions.RequestException as e:
         raise RuntimeError(f"Erro na requisição: {e}")
@@ -81,80 +84,46 @@ def format_description(html_message):
     return formatted_message
 
 
-def format_projects(response):
-    # n_pages = response["results"]["pagination"]["pages"]
-    base_url = "https://www.workana.com"
-    results = response["results"]["results"]
-    href_regex = r'href="([^"]+)"'
+@task
+def  format_project(project):
+    slug = project.get("slug")
+    title = project.get("title")
     title_regex = r'title="([^"]+)"'
-    projects = []
+    title_match = re.search(title_regex, title)
 
-    for job in results:
-        slug = job.get("slug")
-        title = job.get("title")
-        """
-        href_match = re.search(href_regex, title)
+    if title_match:
+        title_value = title_match.group(1)
+        title = title_value
 
-        if href_match:
-            href_value = href_match.group(1)
-            url = href_value
-        """
-        title_match = re.search(title_regex, title)
+    description = project.get("description")
+    description = format_description(description)
+    posted_date = project.get("postedDate")
+    budget = project.get("budget")
+    budget = converter_dolares_para_reais(budget)
+    budget = budget.replace("USD", "R$")
 
-        if title_match:
-            title_value = title_match.group(1)
-            title = title_value
-        # author = job["authorName"]
-        description = job.get("description")
-        description = format_description(description)
-        posted_date = job.get("postedDate")
-        budget = job.get("budget")
-        budget = converter_dolares_para_reais(budget)
-        budget = budget.replace("USD", "R$")
-        """  message = (
-            f"*Informações do projeto:*\n\n"
-            f"*Link do projeto:* {url}\n\n"
-            f"*Título:* {title_value}\n\n"
-            f"*Descrição:* {description}\n"
-            f"*Foi postado:* {posted_date}\n"
-            f"*Orçamento:* {budget}"
+    project = {
+        "title": title,
+        "description": description,
+        "posted": posted_date,
+        "budget": budget,
+        "slug": slug,
+    }
 
-        )
-        message = message.replace("\n", "")"""
+    return project
 
-        projects.append(
-            {
-                "title": title,
-                "description": description,
-                "posted": posted_date,
-                "budget": budget,
-                "slug": slug,
-            }
-        )
-    return projects
-
-
-def send_whats_app_message(id_number, username, to_number, token, project):
+@task
+def send_whats_app_message(username, usernumber, project, secrets):
+    print("Sending whatsapp message...")
+    token = secrets.get("whatsapp_token")
+    id_number = secrets.get("whatsapp_id_sender")
 
     headers = {
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/json",
     }
     url = f"https://graph.facebook.com/v20.0/{id_number}/messages"
-    # url = f"https://graph.facebook.com/v20.0/{id_number}/message_templates"
-    """
-    greetings = f"*Olá! {username} encontramos um novo projeto para você!*\n\n"
-    payload = json.dumps(
-        {
-            "messaging_product": "whatsapp",
-            "recipient_type": "individual",
-            "to": to_number,
-            "type": "text",
-            "preview_url": True,
-            "text": {"body": greetings + message},
-        }
-    )
-    """
+
     title = project.get("title")
     description = project.get("description")
     posted = project.get("posted")
@@ -165,7 +134,7 @@ def send_whats_app_message(id_number, username, to_number, token, project):
         {
             "messaging_product": "whatsapp",
             "recipient_type": "individual",
-            "to": to_number,
+            "to": usernumber,
             "type": "template",
             "template": {
                 "name": "workana_projects",
@@ -214,26 +183,6 @@ def send_whats_app_message(id_number, username, to_number, token, project):
         return response.json()
 
     except requests.exceptions.RequestException as e:
-        print(f"Erro ao enviar mensagem: {e}")
+        raise Exception(f"Erro ao enviar mensagem: {e}")
     except ValueError:
-        print("Erro ao decodificar a resposta JSON.")
-
-
-def freela_pulse(url, query, publication, language, category, skills):
-    response = search_projects(url, query, publication, language, category, skills)
-    messages = format_projects(response)
-    id = 365993156607854
-    to_number = 5521976085063
-    rafa_number = 5521964709429
-    token = "EAAO52Q8n6KwBOz8bucAdHy65ZAPteGIZAb45EzqGhFwXeAm768dEU9hNGjUNL33TSKdZABrd55D2CishKvzFpAl9XU44dgVfIZCQVMRz2IhDl6jqLZAEZBZBi2iULjLAQKSi57wZCCDXoEq36Iip6xPWfsVcFLg3dwerdgxOSIMYpNMXsLhJMbG2ELiSv0A5dNYQFVgnSdpVQucE0LlDwyIjLBnqwarWxaqiPY7ZC"
-    for message in messages:
-        response = send_whats_app_message(id, to_number, token, message)
-        print("response whatsapp:", response)
-
-
-token = "EAAO52Q8n6KwBOZCOeOQ7AX161w6tZCFwvommLWbVsZCIoeSl0MUV6RKPbgXGxnMzILZAS8EYtHzSdUOSKXOAmtd8iL11SK5VpL6bvaJp9i72ISbpZC0hDT5xYQHAQzXaCZBYHGaiLbXu5hMOBtlq4sw3k9hnpjm45mCSbLSjXWujeHdyRWmJY4RRdZBXp287UX5vr9nAgY2ety9vOQO"
-id = 365993156607854
-message = "teste testando teste"
-to_number = 5521976085063
-# response = send_whats_app_message(id, "Alamyr", to_number, token, message, "bot-para-runescape-3")
-# print(response)
+        raise Exception("Erro ao decodificar a resposta JSON.")
