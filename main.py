@@ -24,7 +24,7 @@ def get_variables():
     return config, secrets
 
 
-@task(name="query-data", task_run_name="a")
+@task()
 def get_query_data(query: dict):
     print(query)
     print(f"Adding query to workitems: {query}")
@@ -148,7 +148,7 @@ def process_query(query, supabase, config, secrets):
     """
 
 
-@flow(name="freela-pulse")
+@flow()
 def main():
     config, secrets = get_variables()
     url = config.get("supabase_url")

@@ -33,10 +33,10 @@ deployments:
   tags: []
   concurrency_limit: null
   description: null
-  entrypoint: main.py:freela_pulse
+  entrypoint: main.py:main
   parameters: {}
   work_pool:
-    name: freela-pulse
+    name: teste
     work_queue_name: null
     job_variables: {}
   enforce_parameter_schema: true
