@@ -59,7 +59,7 @@ def format_description(html_message):
     if regex_categoria:
         html_message = regex_categoria.group(0)
     else:
-        raise Exception("Não foi possivel filtrar o texto da descricao")
+        print("Não foi possivel filtrar o texto da descricao")
 
     html_message = re.sub(r'\s*(target|class|rel)="[^"]*"', "", html_message)
 

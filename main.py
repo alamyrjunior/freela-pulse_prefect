@@ -16,6 +16,7 @@ from freela_pulse.workana import (
 )
 import json
 
+
 @task
 def get_variables():
     secrets = Secret.load("freela-pulse-secrets").get()
@@ -82,7 +83,7 @@ def send_project_to_user(user, project, supabase, query_id, secrets):
         if project_exists:
             print("Project was already sent!")
             return
-        
+
         print(user)
         user_id = user.get("user_id")
         users = user.get("users")
@@ -97,7 +98,7 @@ def send_project_to_user(user, project, supabase, query_id, secrets):
             project_exists = insert_project_to_user(supabase, project_id, user_id)
             if project_exists:
                 return
-          
+
             try:
                 send_whats_app_message(username, usernumber, project, secrets)
             except Exception as e:
@@ -122,30 +123,16 @@ def process_query(query, supabase, config, secrets):
     # Gera os pares de usuários e projetos
     pairs = [(user, project) for user in users for project in formatted_projects]
 
-    # Lista para armazenar os futuros
-    futures = []
-
-    # Enviar os projetos para os usuários
     for user, project in pairs:
-        future = send_project_to_user.submit(
+        sent_project = send_project_to_user.submit(
             user,
             project,
             supabase,
             query_id,
             secrets,
-            wait_for=[formatted_projects, projects],
+            wait_for=[format_project, get_projects],
         )
-        futures.append(future)
-
-    # Aguarda todos os futuros serem resolvidos
-    for future in futures:
-        future.result()
-
-    """
-    for user, project in pairs:
-        sent_project = send_project_to_user.submit(user, project, supabase, query_id, secrets, wait_for=[format_project, get_projects])
         sent_project.result()
-    """
 
 
 @flow()
