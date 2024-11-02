@@ -77,11 +77,6 @@ def format_description(html_message):
     # Remove qualquer espaço em branco extra que possa ter ficado
     formatted_message = formatted_message.strip().replace("\n", "")
 
-    if len(formatted_message) > 900:
-        formatted_message = (
-            formatted_message[:900] + "... (continua)"
-        )  # Limita a descrição à 900 caracteres e adiciona "..." no final caso seja maior
-
     return formatted_message
 
 
