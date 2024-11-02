@@ -3,6 +3,7 @@ import re
 import json
 from prefect import task
 
+
 @task
 def request_get_workana_projects(
     url, query, publication, language=None, category=None, skills=None
@@ -85,7 +86,7 @@ def format_description(html_message):
 
 
 @task
-def  format_project(project):
+def format_project(project):
     slug = project.get("slug")
     title = project.get("title")
     title_regex = r'title="([^"]+)"'
@@ -112,6 +113,8 @@ def  format_project(project):
 
     return project
 
+
+"""
 @task
 def send_whats_app_message(username, usernumber, project, secrets):
     print("Sending whatsapp message...")
@@ -186,3 +189,4 @@ def send_whats_app_message(username, usernumber, project, secrets):
         raise Exception(f"Erro ao enviar mensagem: {e}")
     except ValueError:
         raise Exception("Erro ao decodificar a resposta JSON.")
+"""

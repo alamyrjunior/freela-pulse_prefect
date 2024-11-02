@@ -96,12 +96,42 @@ def insert_project(supabase, slug, query_id):
         if "duplicate key value" in str(e):
             project_exists = True
             print("Esse projeto já existe!")
-            return project_exists, None
+
+            # Consulta o project_id do projeto existente
+            response = (
+                supabase.from_("projects")
+                .select("id")
+                .eq("slug", slug)
+                .execute()
+            )
+
+            # Verifica se encontrou o project_id
+            project_id = response.data[0]["id"] if response.data else None
+            return project_exists, project_id
         else:
             raise Exception("Houve um erro ao adicionar o projeto:", e)
 
 
+### CHECK IF PROJECT_EXISTS ###
+def check_project_exists(supabase, user_id, project_id) -> bool:
+    # Executa a consulta para verificar se o projeto existe na tabela user_projects
+    response = (
+        supabase.from_("user_projects")
+        .select("id", count="exact")
+        .eq("user_id", user_id)
+        .eq("project_id", project_id)
+        .execute()
+    )
+
+    # Verifica se algum registro foi encontrado
+    if response.count > 0:
+        return True
+    else:
+        return False
+
+
 ### SELECTS ####
+
 
 def get_all_queries(supabase):
     response = supabase.table("queries").select("*").execute()
@@ -123,13 +153,17 @@ def delete_project_from_user(supabase: create_client, project_id: int):
     print("Projeto excluído com sucesso!")
 
 
-# supabase = create_supabase_client(url, key)
+#url = "https://vhdvimpscrnuwrihfydx.supabase.co"
+#key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZoZHZpbXBzY3JudXdyaWhmeWR4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjU4MDQxOTMsImV4cCI6MjA0MTM4MDE5M30.hXDwuAr2fjKXFq6k8xj2VoXm6MH0yjhnVNG0fDyPWbg"
+#supabase = create_supabase_client(url, key)
 # response = create_user(supabase, 'billl', 'bill2@example.com', 6666666666, True, '2024-12-12')
 # response = create_query(supabase, "bott", "it-programming", "xx", "aa")
 # response = add_query_to_user(supabase, 1, 21)
 # response = insert_project(supabase, "billll", 21)
 # response = insert_project_to_user(supabase, 2, 1)
 # response = get_users_from_query(supabase, 21)
+#response = check_project_exists(supabase, 1, 1)
+
 """
 for user in response:
     userdata = user.get("users")
