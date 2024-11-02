@@ -55,27 +55,36 @@ def converter_dolares_para_reais(budget):
     return nova_string
 
 
-def format_description(html_message):
-    regex_categoria = re.search(r".*(?=Categoria)", html_message)
-    if regex_categoria:
-        html_message = regex_categoria.group(0)
-    else:
-        print("Não foi possivel filtrar o texto da descricao")
+import re
 
+
+def format_description(html_message):
+    # Filtra o conteúdo antes da palavra "Categoria" (caso exista)
+    regex_categoria = re.search(r"^(.*?)\s*Categoria", html_message, re.DOTALL)
+    if regex_categoria:
+        html_message = regex_categoria.group(1)
+    else:
+        print(
+            "Não foi possível filtrar o texto da descrição, usando a mensagem inteira."
+        )
+
+    # Remove atributos indesejados (como target, class, rel)
     html_message = re.sub(r'\s*(target|class|rel)="[^"]*"', "", html_message)
 
-    # Substitui as tags <a> pelo próprio link contido nelas
+    # Substitui tags <a> pelo link contido nelas
     html_message = re.sub(r'<a[^>]*href="([^"]+)"[^>]*>(.*?)</a>', r"\1", html_message)
-    # Substitui as quebras de linha, incluindo espaços ao redor
-    formatted_message = re.sub(r"\s*<br\s*/?>\s*", "\n", html_message)
 
-    # Substitui as tags <strong> pelo asterisco
-    formatted_message = re.sub(r"</?strong>", "", formatted_message)
+    # Substitui as quebras de linha <br> por uma nova linha
+    html_message = re.sub(r"\s*<br\s*/?>\s*", "\n", html_message)
 
-    formatted_message = formatted_message.replace("&nbsp", " ")
+    # Substitui tags <strong> por asteriscos para ênfase (ou remove, conforme desejado)
+    formatted_message = re.sub(r"</?strong>", "*", html_message)
 
-    # Remove qualquer espaço em branco extra que possa ter ficado
-    formatted_message = formatted_message.strip().replace("\n", "")
+    # Substitui &nbsp por um espaço
+    formatted_message = formatted_message.replace("&nbsp;", " ")
+
+    # Remove múltiplos espaços e quebras de linha consecutivas
+    formatted_message = re.sub(r"\s+", " ", formatted_message).strip()
 
     return formatted_message
 
