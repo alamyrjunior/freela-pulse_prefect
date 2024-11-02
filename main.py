@@ -84,7 +84,7 @@ def send_whatsapp_message(config, usernumber, username, project):
     evolution_api_url = config.get("evolution_api_url")
     instance = config.get("instance_evolution_api")
     api_key = config.get("evolution_api_key")
-    message = f"""*Olá {username}, encontramos um novo projeto para você!*\n\n_Informações do projeto_\n\n*Título:* {title}\n\n*Descrição:* {description}\n\n*Foi postado:* {posted}\n\n*Orçamento:* {budget}\n\n*Link:* workana.com/job/{slug}\n\n          _Boa sorte nos freelas!_\n\n```      Freela Pulse      ``` """
+    message = f"""*Olá {username}, encontramos um novo projeto para você!*\n\n_Informações do projeto_\n\n*Título:* {title}\n\n*Descrição:* {description}\n\n*Foi postado:* {posted}\n\n*Orçamento:* {budget}\n\n*Link:* workana.com/job/{slug}\n\n            _Boa sorte nos freelas!_\n\n```        Freela Pulse      ``` """
 
     payload = json.dumps(
         {"number": str(usernumber) + "@s.whatsapp.net", "text": message}
