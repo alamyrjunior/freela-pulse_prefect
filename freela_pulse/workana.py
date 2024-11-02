@@ -60,13 +60,8 @@ import re
 
 def format_description(html_message):
     # Filtra o conteúdo antes da palavra "Categoria" (caso exista)
-    regex_categoria = re.search(r"^(.*?)\s*Categoria", html_message, re.DOTALL)
-    if regex_categoria:
-        html_message = regex_categoria.group(1)
-    else:
-        print(
-            "Não foi possível filtrar o texto da descrição, usando a mensagem inteira."
-        )
+     # Remove o conteúdo a partir da palavra "Categoria" ou "descrição" (inclusive)
+    html_message = re.sub(r"\s*(Categoría|Categoria).*", "", html_message, flags=re.IGNORECASE | re.DOTALL)
 
     # Remove atributos indesejados (como target, class, rel)
     html_message = re.sub(r'\s*(target|class|rel)="[^"]*"', "", html_message)
@@ -85,6 +80,7 @@ def format_description(html_message):
 
     # Remove múltiplos espaços e quebras de linha consecutivas
     formatted_message = re.sub(r"\s+", " ", formatted_message).strip()
+    formatted_message = formatted_message.replace("Hace instantes", "Faz instantes")
 
     return formatted_message
 
